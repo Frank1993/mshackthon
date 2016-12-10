@@ -17,6 +17,7 @@ from face_profile import get_profile
 
 from sim_image import find_similar_image
 
+from find_kids import find_lost_kids
 from weixin_sdk.public import WxBasic
 
 define("port", default=443, help="run on the given port", type=int)
@@ -102,9 +103,11 @@ class MainHandler(BaseHandler):
                 self.write(self.wechat.pack_text("请输入一张图片："))
             elif content == "3":
                 users[message.fromUserName]["func"] = "3"
-                self.write(self.wechat.pack_text("3.1:\"宝贝回家公益活动\"\n3.2:\"对于雾霾我有话说\""))
+                self.write(self.wechat.pack_text("3.1:\"宝贝回家公益活动\"\n3.2:\"对于雾霾我有话说\"3.3:\"谁是北邮最帅的人\""))
+            elif content == "3.1":
+                users[message.fromUserName]["func"] = "3.1"
             else:
-                self.write(self.wechat.pack_text("1.最美的容颜\n2.相似的人\n3.找找感兴趣的话题"))
+                self.write(self.wechat.pack_text("1.颜值达芬奇\n2.相似的人\n3.找感兴趣的话题\n4.发起一个话题"))
 
             #print u'收到文本消息:%s' % content
             #self.write(self.wechat.pack_text(content))
@@ -112,7 +115,7 @@ class MainHandler(BaseHandler):
         elif message.msgType == 'image':
             imageUrl = message.picUrl
 
-            if imageUrl in users[message.fromUserName]:
+            if imageUrl in users[message.fromUserName] and "func" in users[message.fromUserName]:
                 if users[message.fromUserName]["func"] == "1":
                     profile_message = users[message.fromUserName][imageUrl]["profile_message"]
                     self.write(self.wechat.pack_text(profile_messages))
@@ -120,13 +123,17 @@ class MainHandler(BaseHandler):
                 elif users[message.fromUserName]["func"] == "2":
                     sim_message = users[message.fromUserName][imageUrl]["sim_message"]
                     self.write(self.wechat.pack_text(sim_message))
+                elif users[message.fromUserName]["func"] == "3.1":
+                    kid_message = users[message.fromUserName][imageUrl]['kid_message']
+                    self.write(self.wechat.pack_text(kid_message))
             else:
                 imagePath = self.receive_img(imageUrl)
 
                 users[message.fromUserName][imageUrl] = {}
                 users[message.fromUserName][imageUrl]["imagePath"] = imagePath
 
-                if users[message.fromUserName]["func"]  == "1":
+
+                if ("func" not in users[message.fromUserName]) or (users[message.fromUserName]["func"]  == "1"):
                     profile = self.image_profile(imagePath)
 
                     profile_messages = self.profileParse(profile)
@@ -139,13 +146,24 @@ class MainHandler(BaseHandler):
                     sim_message = "我们找到了如下这些相似图片：\n"
 
                     for image in similarImage:
-                        image = "http://115.28.212.24/image_similar/" + image.split('/')[-1]
-                        sim_message += image 
+                        image_url = "http://115.28.212.24/image_similar/" + image.split('/')[-1]
+                        sim_message += image_url 
                         sim_message + "\n"
 
                     users[message.fromUserName][imageUrl]["sim_message"] = sim_message
 
                     self.write(self.wechat.pack_text(sim_message))
+                elif users[message.fromUserName]["func"] == "3.1":
+                    kid_image = find_lost_kids(imagePath)
+                    kid_message = "我们找到了这些可能丢失的宝贝：\n"
+
+                    for image in kid_image:
+                        image_url = "http://115.28.212.24/image_similar/" + image.split('/')[-1]
+                        kid_message += image_url
+                        kid_message += "\n"
+
+                    users[message.fromUserName][imageUrl]['kid_message'] = kid_message
+                    self.write(self.wechat.pack_text(kid_message))
 
         elif message.msgType == 'event':
             pass

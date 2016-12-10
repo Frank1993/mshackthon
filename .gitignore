@@ -4,6 +4,6 @@
 *~
 
 tensorflow/*
-
+source/inception_model/*
 *.pyc
 

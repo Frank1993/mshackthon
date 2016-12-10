@@ -11,7 +11,7 @@ import numpy as np
 
 from sklearn.neighbors import LSHForest
 
-image_similar_dir = os.path.abspath('../data/face_image/')
+image_similar_dir = os.path.abspath('../data/kids_imgs_large/')
 
 similar_image_paths = []
 for file in os.listdir(image_similar_dir):
@@ -34,24 +34,25 @@ for image in similar_image_paths:
 """
 # extract features
 #similar_image_features = extract_features(similar_image_paths)
-#np.save('../data/model/face_image.pickle',similar_image_features)
+#np.save('../data/model/kids_image_large.pickle',similar_image_features)
 
 # load features
 
-similar_image_features = np.load('../data/model/face_image.pickle.npy')
+similar_image_features = np.load('../data/model/kids_image_large.pickle.npy')
 
 lshf = LSHForest(random_state=42)
 lshf.fit(similar_image_features)
-def find_similar_image(image_path):
+def find_lost_kids(image_path):
     image_feature = extract_features([image_path])
     distances, indices = lshf.kneighbors(image_feature, n_neighbors=3)
     return [similar_image_paths[i] for i in indices[0]][1:]
 
 
 if __name__ == '__main__':
-
-    image_path = image_similar_dir + '/face_image2015110421.jpg'
-    similar_images = find_similar_image(image_path)
+    
+    image_path = image_similar_dir + '/s_184172.jpg'
+    similar_images = find_lost_kids(image_path)
 
     for image in similar_images:
         print image
+    
