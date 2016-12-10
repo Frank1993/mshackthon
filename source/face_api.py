@@ -17,7 +17,7 @@ from face_profile import get_profile
 
 from sim_image import find_similar_image
 
-define("port", default=8888, help="run on the given port", type=int)
+define("port", default=443, help="run on the given port", type=int)
 
 image_dir = os.path.abspath('../data/receive_image')
 
@@ -86,7 +86,7 @@ class MainHandler(BaseHandler):
         else:
             self.set_status(404)
         """
-        
+
         self.wechat.parse_data(self.request.body)
         message = self.wechat.message
         #收到消息后针对不同消息类型进行处理
