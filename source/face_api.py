@@ -8,9 +8,10 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.options
 import tornado.web
-
+import urllib
 from tornado.options import define, options
 
+from collections import defaultdict
 
 from face_profile import get_profile
 
@@ -60,12 +61,21 @@ class MainHandler(BaseHandler):
 
     #curl -F img=@ThisImgName.jpg http://localhost:8888/?action=uploadImg
     #curl -d '{"samegender":"0","imgpath":"fdsfasfsd"}' http://localhost:8888/?action=getSimilar
-
+    def prepare(self):
+        self.wechat = WxBasic(appid='wxc6bda0648ddce174',
+                              appsecret='2817bd8733126ad630f9d23b149dc3d1',
+                              token='hack')
+        self.users =defaultdict(dict)
     def get(self):
-        img = self.get_query_argument('img')
-        self.send_image(img)
+        #首次接入验证,传入url上的query字符串键值对
+        if self.wechat.check_signature(self.query_arguments):
+            echo_str = self.get_query_argument('echostr', '')
+            self.write(echo_str)
+        else:
+            self.write('wrong, request not from wechat!')
 
     def post(self):
+        """
         action = self.get_query_argument('action')
         if action == 'uploadImg':
             self.receive_img()
@@ -75,46 +85,109 @@ class MainHandler(BaseHandler):
             #self.send_image(action)
         else:
             self.set_status(404)
+        """
+        
+        self.wechat.parse_data(self.request.body)
+        message = self.wechat.message
+        #收到消息后针对不同消息类型进行处理
+        if message.msgType == 'text':
+            content = message.content
+            if content == "1":
+                self.users[message.fromUserName]["func"]="1"
+                self.write(self.wechat.pack_text("请输入一张图片："))
+            elif content == "2":
+                self.users[message.fromUserName]["func"] = "2"
+                self.write(self.wechat.pack_text("请输入一张图片："))
+            elif content == "3":
+                self.users[message.fromUserName]["func"] = "3"
+                self.write(self.wechat.pack_text("3.1:\"宝贝回家公益活动\"\n3.2:\"对于雾霾我有话说\""))
+            else:
+                self.write(self.wechat.pack_text("1.最美的容颜\n2.相似的人\n3.找找感兴趣的话题"))
+
+            #print u'收到文本消息:%s' % content
+            #self.write(self.wechat.pack_text(content))
+            return
+        elif message.msgType == 'image':
+            imageUrl = message.picUrl
+
+            if imageUrl in self.users[message.fromUserName]:
+                if self.users[message.fromUserName]["func"] == "1":
+                    profile_message = self.users[message.fromUserName][imageUrl]["profile_message"]
+                    self.write(self.wechat.pack_text(profile_messages))
+
+                elif self.users[message.fromUserName]["func"] == "2":
+                    sim_message = self.users[message.fromUserName][imageUrl]["sim_message"]
+                    self.write(self.wechat.pack_text(sim_message))
+            else:
+                imagePath = self.receive_img(imageUrl)
+
+                self.users[message.fromUserName][imageUrl] = {}
+                self.users[message.fromUserName][imageUrl]["imagePath"] = imagePath
+
+                if self.users[message.fromUserName]["func"]  == "1":
+                    profile = self.image_profile(filepath)
+
+                    profile_messages = self.profileParse(profile)
+
+                    self.users[message.fromUserName][imageUrl]["profile_message"] = profile_message
+                    self.write(self.wechat.pack_text(profile_messages))
+
+                elif self.users[message.fromUserName]["func"]  == "2":
+                    similarImage = self.get_similar_img(imagePath)
+                    sim_message = "我们找到了如下这些相似图片：\n"
+
+                    for image in similarImage:
+                        sim_message += image + "\n"
+
+                    self.users[message.fromUserName][imageUrl]["sim_message"] = sim_message
+
+                    self.write(self.wechat.pack_text(sim_message))
+
+        elif message.msgType == 'event':
+            pass
+
+    def profileParse(self,profile):
+        message = ""
+        if profile["glasses"]== "0":
+            message += "不带眼镜，"
+        else:
+            message += "带眼镜，"
+
+        if profile["skin"] == "0":
+            message += "肤色正常,"
+        elif profile["skin"] == "1":
+            message += "肌肤亮白,"
+        else:
+            message += "肤色健康,"
+
+        message += "给您的颜值评分 %s分"%profile['face_score']
+
+        return message
+
 
     def send_image(self,imageName):
         imagePath = self.get_img_path(imageName)
         self.write({"imageName":imagePath})
-    def receive_img(self):
-        print self.request.files
-        http_file_list = self.request.files.get('img')
-        if http_file_list:
-            f = http_file_list[0]
-            filename = self.gen_unique_name()
-            filepath = self.get_img_path(filename)+".jpg"
-            try:
-                with open(filepath, 'wb') as up:
-                    up.write(f.body)
-            except Exception, e:
-                self.set_status(500)
-                return self.write('save img error')
-            retd = self.image_profile(filepath)
-            print 'save image to '+ filepath
-            retd['imagePath'] = filepath
-            self.write(tornado.escape.json_encode(retd))
-        else:
-            self.set_status(404)
-            self.write('no file found')
+    def receive_img(self,imageUrl):
+        
 
-
-    def get_similar_img(self):
+        filename = self.gen_unique_name()
+        filepath = self.get_img_path(filename)+".jpg"
         try:
-            dinfo = tornado.escape.json_decode(self.request.body)
-            if not dinfo:
-                raise ValueError
-            imgpath = dinfo.get('imgpath')
-            if not imgpath:
-                raise ValueError
-        except:
-            self.set_status(404)
-            return self.write('argument error')
-        newpath = self.find_simlilar_image(imgpath)
-        self.write({'newimg': newpath})
+            urllib.urlretrieve(imageUrl,filepath)
+            return filepath
+        except Exception, e:
+            self.set_status(500)
+            return self.write('save img error')
 
+        
+
+
+
+    def get_similar_img(self,imagePath):
+        newpath = self.find_simlilar_image(imgpath)
+        print "similar image:",newpath
+        return newpath
 
 
 def main():
