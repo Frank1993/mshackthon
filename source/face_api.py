@@ -22,7 +22,7 @@ from weixin_sdk.public import WxBasic
 define("port", default=443, help="run on the given port", type=int)
 
 image_dir = os.path.abspath('../data/receive_image')
-
+users =defaultdict(dict)
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
@@ -67,7 +67,7 @@ class MainHandler(BaseHandler):
         self.wechat = WxBasic(appid='wxc6bda0648ddce174',
                               appsecret='2817bd8733126ad630f9d23b149dc3d1',
                               token='hack')
-        self.users =defaultdict(dict)
+        
     def get(self):
         #首次接入验证,传入url上的query字符串键值对
         if self.wechat.check_signature(self.query_arguments):
@@ -95,13 +95,13 @@ class MainHandler(BaseHandler):
         if message.msgType == 'text':
             content = message.content
             if content == "1":
-                self.users[message.fromUserName]["func"]="1"
+                users[message.fromUserName]["func"]="1"
                 self.write(self.wechat.pack_text("请输入一张图片："))
             elif content == "2":
-                self.users[message.fromUserName]["func"] = "2"
+                users[message.fromUserName]["func"] = "2"
                 self.write(self.wechat.pack_text("请输入一张图片："))
             elif content == "3":
-                self.users[message.fromUserName]["func"] = "3"
+                users[message.fromUserName]["func"] = "3"
                 self.write(self.wechat.pack_text("3.1:\"宝贝回家公益活动\"\n3.2:\"对于雾霾我有话说\""))
             else:
                 self.write(self.wechat.pack_text("1.最美的容颜\n2.相似的人\n3.找找感兴趣的话题"))
@@ -112,36 +112,36 @@ class MainHandler(BaseHandler):
         elif message.msgType == 'image':
             imageUrl = message.picUrl
 
-            if imageUrl in self.users[message.fromUserName]:
-                if self.users[message.fromUserName]["func"] == "1":
-                    profile_message = self.users[message.fromUserName][imageUrl]["profile_message"]
+            if imageUrl in users[message.fromUserName]:
+                if users[message.fromUserName]["func"] == "1":
+                    profile_message = users[message.fromUserName][imageUrl]["profile_message"]
                     self.write(self.wechat.pack_text(profile_messages))
 
-                elif self.users[message.fromUserName]["func"] == "2":
-                    sim_message = self.users[message.fromUserName][imageUrl]["sim_message"]
+                elif users[message.fromUserName]["func"] == "2":
+                    sim_message = users[message.fromUserName][imageUrl]["sim_message"]
                     self.write(self.wechat.pack_text(sim_message))
             else:
                 imagePath = self.receive_img(imageUrl)
 
-                self.users[message.fromUserName][imageUrl] = {}
-                self.users[message.fromUserName][imageUrl]["imagePath"] = imagePath
+                users[message.fromUserName][imageUrl] = {}
+                users[message.fromUserName][imageUrl]["imagePath"] = imagePath
 
                 if self.users[message.fromUserName]["func"]  == "1":
                     profile = self.image_profile(filepath)
 
                     profile_messages = self.profileParse(profile)
 
-                    self.users[message.fromUserName][imageUrl]["profile_message"] = profile_message
+                    users[message.fromUserName][imageUrl]["profile_message"] = profile_message
                     self.write(self.wechat.pack_text(profile_messages))
 
-                elif self.users[message.fromUserName]["func"]  == "2":
+                elif users[message.fromUserName]["func"]  == "2":
                     similarImage = self.get_similar_img(imagePath)
                     sim_message = "我们找到了如下这些相似图片：\n"
 
                     for image in similarImage:
                         sim_message += image + "\n"
 
-                    self.users[message.fromUserName][imageUrl]["sim_message"] = sim_message
+                    users[message.fromUserName][imageUrl]["sim_message"] = sim_message
 
                     self.write(self.wechat.pack_text(sim_message))
 
