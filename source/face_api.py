@@ -17,6 +17,8 @@ from face_profile import get_profile
 
 from sim_image import find_similar_image
 
+from weixin_sdk.public import WxBasic
+
 define("port", default=443, help="run on the given port", type=int)
 
 image_dir = os.path.abspath('../data/receive_image')
