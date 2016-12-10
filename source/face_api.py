@@ -26,7 +26,7 @@ users =defaultdict(dict)
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
-            (r"/images/(.*)", tornado.web.StaticFileHandler, {'path':r"../data/receive_image/"}),
+            (r"/image_similar/(.*)", tornado.web.StaticFileHandler, {'path':r"../data/receive_image/"}),
             (r"/", MainHandler),
         ]
         settings = dict(
@@ -126,12 +126,12 @@ class MainHandler(BaseHandler):
                 users[message.fromUserName][imageUrl] = {}
                 users[message.fromUserName][imageUrl]["imagePath"] = imagePath
 
-                if self.users[message.fromUserName]["func"]  == "1":
-                    profile = self.image_profile(filepath)
+                if users[message.fromUserName]["func"]  == "1":
+                    profile = self.image_profile(imagePath)
 
                     profile_messages = self.profileParse(profile)
 
-                    users[message.fromUserName][imageUrl]["profile_message"] = profile_message
+                    users[message.fromUserName][imageUrl]["profile_message"] = profile_messages
                     self.write(self.wechat.pack_text(profile_messages))
 
                 elif users[message.fromUserName]["func"]  == "2":
@@ -139,7 +139,9 @@ class MainHandler(BaseHandler):
                     sim_message = "我们找到了如下这些相似图片：\n"
 
                     for image in similarImage:
-                        sim_message += image + "\n"
+                        image = "http://115.28.212.24/image_similar/" + image.split('/')[-1]
+                        sim_message += image 
+                        sim_message + "\n"
 
                     users[message.fromUserName][imageUrl]["sim_message"] = sim_message
 
@@ -187,7 +189,7 @@ class MainHandler(BaseHandler):
 
 
     def get_similar_img(self,imagePath):
-        newpath = self.find_simlilar_image(imgpath)
+        newpath = self.find_simlilar_image(imagePath)
         print "similar image:",newpath
         return newpath
 
